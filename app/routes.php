@@ -34,7 +34,6 @@ return function (App $app) {
         return $response->withHeader("Content-Type", "application/json");
     });
 
-    // post data
    // post data
 $app->post('/user', function (Request $request, Response $response) {
     $parsedBody = $request->getParsedBody();
@@ -59,8 +58,6 @@ $app->post('/user', function (Request $request, Response $response) {
 
     return $response->withHeader("Content-Type", "application/json");
 }); 
-
-
 
   // put data
 $app->put('/user/{id}', function (Request $request, Response $response, $args) {
@@ -125,4 +122,114 @@ $app->delete('/user/{id}', function (Request $request, Response $response, $args
 
     return $response->withHeader("Content-Type", "application/json");
 });
+    
+// TABLE PUBLISHER
+// get 
+    $app->get('/publisher', function (Request $request, Response $response) {
+        $db = $this->get(PDO::class);
+
+        $query = $db->query('CALL lihatPublisher()');
+        $results = $query->fetchAll(PDO::FETCH_ASSOC);
+        $response->getBody()->write(json_encode($results));
+
+        return $response->withHeader("Content-Type", "application/json");
+    });
+
+    // get publisher by ID
+    $app->get('/publisher/{id}', function (Request $request, Response $response, $args) {
+        $db = $this->get(PDO::class);
+
+        $query = $db->prepare('CALL getPublisherById(:idPublisher)');
+        $query->execute(['idPublisher' => $args['id']]);
+        $results = $query->fetchAll(PDO::FETCH_ASSOC);
+        $response->getBody()->write(json_encode($results[0]));
+
+        return $response->withHeader("Content-Type", "application/json");
+    });
+
+    // CREATE
+    $app->post('/publisher', function (Request $request, Response $response) {
+        $parsedBody = $request->getParsedBody();
+
+        $nama_publisher = $parsedBody["nama_publisher"];
+        $kontak = $parsedBody["kontak"];
+
+        $db = $this->get(PDO::class);
+
+        $query = $db->prepare('CALL tambahPublisher(:nama_publisher, :kontak)');
+        $query->bindParam(':nama_publisher', $nama_publisher, PDO::PARAM_STR);
+        $query->bindParam(':kontak', $kontak, PDO::PARAM_STR);
+
+        $query->execute();
+
+        $response->getBody()->write(json_encode(
+            [
+                'message' => 'Penerbit disimpan'
+            ]
+        ));
+
+        return $response->withHeader("Content-Type", "application/json");
+    });
+
+    // UPDATE
+    $app->put('/publisher/{id}', function (Request $request, Response $response, $args) {
+        $parsedBody = $request->getParsedBody();
+
+        $idPublisher = $args['id'];
+        $nama_publisher = $parsedBody["nama_publisher"];
+        $kontak = $parsedBody["kontak"];
+
+        $db = $this->get(PDO::class);
+
+        $query = $db->prepare('CALL ubahPublisher(:idPublisher, :nama_publisher, :kontak)');
+        $query->bindParam(':idPublisher', $idPublisher, PDO::PARAM_INT);
+        $query->bindParam(':nama_publisher', $nama_publisher, PDO::PARAM_STR);
+        $query->bindParam(':kontak', $kontak, PDO::PARAM_STR);
+
+        $query->execute();
+
+        $response->getBody()->write(json_encode(
+            [
+                'message' => 'Penerbit dengan ID ' . $idPublisher . ' telah diupdate'
+            ]
+        ));
+
+        return $response->withHeader("Content-Type", "application/json");
+    });
+
+    // DELETE
+    $app->delete('/publisher/{id}', function (Request $request, Response $response, $args) {
+        $currentId = $args['id'];
+        $db = $this->get(PDO::class);
+
+        try {
+            $query = $db->prepare('CALL hapusPublisher(:idPublisher)');
+            $query->bindParam(':idPublisher', $currentId, PDO::PARAM_INT);
+            $query->execute();
+
+            if ($query->rowCount() === 0) {
+                $response = $response->withStatus(404);
+                $response->getBody()->write(json_encode(
+                    [
+                        'message' => 'Data tidak ditemukan'
+                    ]
+                ));
+            } else {
+                $response->getBody()->write(json_encode(
+                    [
+                        'message' => 'Penerbit dengan ID ' . $currentId . ' telah dihapus dari database'
+                    ]
+                ));
+            }
+        } catch (PDOException $e) {
+            $response = $response->withStatus(500);
+            $response->getBody()->write(json_encode(
+                [
+                    'message' => 'Database error ' . $e->getMessage()
+                ]
+            ));
+        }
+
+        return $response->withHeader("Content-Type", "application/json");
+    });
 };
